@@ -1,4 +1,6 @@
-create database if not exists cms_db;
+  drop database if exists cms_db;
+
+create database cms_db;
 
 use cms_db;
 
