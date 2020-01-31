@@ -35,6 +35,10 @@ function start() {
       value: "addRole"
      },
      {
+      name: "Add employee",
+      value: "addEmployee"
+     },
+     {
       name: "Quit",
       value: "quit"
      }
@@ -47,6 +51,9 @@ function start() {
     break;
    case "addRole":
     addRole();
+    break;
+   case "addEmployee":
+    addEmployee();
     break;
    case "quit":
     quit();
@@ -101,56 +108,51 @@ function addRole() {
  });
 }
 
+function addEmployee() {
+ connection.query("select id, concat(first_name, ' ', last_name) as name from employee", (err, employees) => {
+  if (err) throw err;
+  connection.query("select id, title from role", (err, roles) => {
+   if (err) throw err;
+   inquirer.prompt(
+    [
+     {
+      message: "Enter first name.",
+      name: "firstName"
+     },
+     {
+      message: "Enter last name.",
+      name: "lastName"
+     },
+     {
+      message: "Select role.",
+      type: "rawlist",
+      name: "role",
+      choices: roles.map(r => ({ name: r.title, value: r.id }))
+     },
+     {
+      message: "Does employee have a manager?",
+      type: "confirm",
+      name: "hasMgr"
+     },
+     {
+      when: answ => answ.hasMgr,
+      message: "Select manager.",
+      type: "rawlist",
+      name: "manager",
+      choices: employees.map(emp => ({ name: emp.name, value: emp.id }))
+     }
+    ]
+   ).then(answers => {
+    connection.query("insert into employee (first_name, last_name, role_id, manager_id) values (?, ?, ?, ?)", [answers.firstName, answers.lastName, answers.role, answers.manager], (err, result) => {
+     if (err) throw err;
+     console.log(`${result.affectedRows} row(s) inserted.`);
+     start();
+    });
+   });
+  });
+ });
+}
+
 function quit() {
  connection.end();
 }
-
-/*
-async function addEmployee() {
- answer = await inquirer.prompt(
-  [
-   {
-    message: "Enter employee first name.",
-    name: "firstName"
-   },
-   {
-    message: "Enter employee last name.",
-    name: "lastName"
-   }
-  ]
- );
- console.log(`Added ${ answer.firstName } ${ answer.lastName }`);
-}
-
-// Functions that select
-
-async function viewDepartment() {
- answer = await inquirer.prompt(
-  {
-   message: "Enter name of department to add.",
-   name: "department"
-  }
- );
- console.log(`Added ${ answer.department }`);
-}
-
-async function addRole() {
- answer = await inquirer.prompt(
-  {
-   message: "Enter name of role to add.",
-   name: "role"
-  }
- );
- console.log(`Added ${ answer.role }`);
-}
-
-async function addDepartment() {
- answer = await inquirer.prompt(
-  {
-   message: "Enter name of department to add.",
-   name: "department"
-  }
- );
- console.log(`Added ${ answer.department }`);
-}
-*/
