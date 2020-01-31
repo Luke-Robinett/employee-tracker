@@ -61,8 +61,14 @@ function start() {
       case "View employees":
         viewEmployees();
         break;
+      case "Update employee roles":
+        updateEmployeeRoles();
+        break;
       default:
-        connection.end();
+        connection.end(err => {
+          if (err) throw err;
+          console.log("Goodbye! Closing connection.");
+        });
     }
   });
 }
@@ -85,7 +91,7 @@ function addDepartment() {
 }
 
 function addRole() {
-  connection.query("select id, name from department", (err, result) => {
+  connection.query("select id, name from department order by name asc", (err, result) => {
     inquirer.prompt(
       [
         {
@@ -105,7 +111,7 @@ function addRole() {
         }
       ]
     ).then(answer => {
-      connection.query("insert into role (title, salary, department_id) values (?, ?, ?)", [answer.title, answer.salary, answer.department.value], (err, result) => {
+      connection.query("insert into role (title, salary, department_id) values (?, ?, ?)", [answer.title, answer.salary, answer.department], (err, result) => {
         if (err) throw err;
         console.log(`Inserted ${result.affectedRows} row(s)`);
         start();
@@ -115,9 +121,9 @@ function addRole() {
 }
 
 function addEmployee() {
-  connection.query("select id, title from role", (err, roles) => {
+  connection.query("select id, title from role order by title asc", (err, roles) => {
     if (err) throw err;
-    connection.query("select id, concat(first_name, ' ', last_name) as name from employee", (err, employees) => {
+    connection.query("select id, concat(first_name, ' ', last_name) as name from employee order by name asc", (err, employees) => {
       if (err) throw err;
       inquirer.prompt(
         [
@@ -149,7 +155,7 @@ function addEmployee() {
           }
         ]
       ).then(answers => {
-        connection.query("insert into employee (first_name, last_name, role_id, manager_id) values (?, ?, ?, ?)", [answers.firstName, answers.lastName, answers.role, answers.manager.value], (err, result) => {
+        connection.query("insert into employee (first_name, last_name, role_id, manager_id) values (?, ?, ?, ?)", [answers.firstName, answers.lastName, answers.role, answers.manager], (err, result) => {
           if (err) throw err;
           console.log(`${result.affectedRows} row(s) inserted.`);
           start();
@@ -162,7 +168,7 @@ function addEmployee() {
 // Select functions
 
 function viewDepartments() {
-  connection.query("select * from department", (err, result) => {
+  connection.query("select * from department order by name asc", (err, result) => {
     if (err) throw err;
     console.table(result);
     start();
@@ -172,7 +178,8 @@ function viewDepartments() {
 function viewRoles() {
   const queryText = "select role.id, title, salary, department.name " +
     "from role " +
-    "inner join department on role.department_id = department.id";
+    "inner join department on role.department_id = department.id " +
+    "order by title asc";
   connection.query(queryText, (err, result) => {
     if (err) throw err;
     console.table(result);
@@ -184,10 +191,50 @@ function viewEmployees() {
   const queryText = "select employee.id, employee.first_name, employee.last_name, role.title, concat(manager.first_name, ' ', manager.last_name) as manager " +
     "from employee " +
     "inner join role on employee.role_id = role.id " +
-    "left join employee as manager on employee.manager_id = manager.id";
+    "left join employee as manager on employee.manager_id = manager.id " +
+    "order by employee.last_name asc";
   connection.query(queryText, (err, result) => {
     if (err) throw err;
     console.table(result);
     start();
+  });
+}
+
+function updateEmployeeRoles() {
+  const queryText = "select employee.id, concat(last_name, ', ', first_name, '(Currently ', title, ')') as display_text " +
+    "from employee "
+    + "inner join role on employee.role_id = role.id " +
+    "order by display_text asc";
+  connection.query(queryText, (err, employees) => {
+    if (err) throw err;
+    inquirer.prompt(
+      {
+        message: "Choose employee to update.",
+        type: "rawlist",
+        name: "employee",
+        choices: employees.map(emp => ( { name: emp.display_text, value: emp.id } ))
+      }
+    ).then(empAnswer => {
+      connection.query("select id, title from role order by title asc", (err, roles) => {
+        if (err) throw err;
+        inquirer.prompt(
+          {
+            message: "Choose role to assign.",
+            type: "rawlist",
+            name: "role",
+            choices: roles.map(r => ( { name: r.title, value: r.id } ))
+          }
+        ).then(roleAnswer => {
+          const queryText = "update employee " +
+            "set role_id = ? " +
+            "where id = ?";
+            connection.query(queryText, [roleAnswer.role, empAnswer.employee], (err, result) => {
+              if (err) throw err;
+              console.log(`${result.affectedRows} updated.`);
+              start();
+            });
+        });
+      });
+    });
   });
 }
