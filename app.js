@@ -62,7 +62,7 @@ function start() {
         viewEmployees();
         break;
       default:
-        quit();
+        connection.end();
     }
   });
 }
@@ -190,8 +190,4 @@ function viewEmployees() {
     console.table(result);
     start();
   });
-}
-
-function quit() {
-  connection.end();
 }
